@@ -5,7 +5,6 @@ import subprocess
 from collections import namedtuple
 
 import pnpid
-import util
 
 
 def get_edids():
@@ -18,8 +17,7 @@ def get_edids():
             selection = lines[i + 1 : i + 9]
             selection = list(s.decode().strip() for s in selection)
             selection = "".join(selection)
-            bytes = util.hex2bytes(selection)
-            edids.append(bytes)
+            edids.append(bytes.fromhex(selection))
     return edids
 
 
