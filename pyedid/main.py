@@ -9,9 +9,16 @@ from pyedid.helpers.registry import Registry
 
 def main():
     """Main func"""
-    print("Loading registry from web...")
-    registry = Registry.from_web()
-    print("Done!\n")
+
+    edid_csv_cache = "/tmp/pyedid-database.csv"
+
+    try:
+        registry = Registry.from_csv(edid_csv_cache)
+    except FileNotFoundError:
+        print("Loading registry from web...")
+        registry = Registry.from_web()
+        print("Done!\n")
+        registry.to_csv(edid_csv_cache)
 
     for raw in EdidHelper.get_edids():
         edid = Edid(raw, registry)
