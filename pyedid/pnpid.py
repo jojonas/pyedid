@@ -7,7 +7,7 @@ DIR = os.path.dirname(os.path.abspath(__file__))
 CSV_FILENAME = os.path.join(DIR, "pnp_ids.csv")
 
 PNP_IDS = {}
-with open("pnp_ids.csv", "r") as file:
+with open(CSV_FILENAME, "r") as file:
     reader = csv.reader(file)
     for line in reader:
         PNP_IDS[line[0]] = line[1]

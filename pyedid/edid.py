@@ -4,8 +4,7 @@ import struct
 import subprocess
 from collections import namedtuple
 
-import pnpid
-
+import pyedid.pnpid as pnpid
 
 def get_edids():
     output = subprocess.check_output(["xrandr", "--verbose"])
@@ -184,7 +183,11 @@ class Edid:
         return "%s(\n%s\n)" % (clsname, ", \n".join(attributes))
 
 
-if __name__ == "__main__":
+def main():
     for raw in get_edids():
         edid = Edid(raw)
         print(edid)
+
+if __name__ == "__main__":
+    main()
+    
