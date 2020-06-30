@@ -23,7 +23,7 @@ def get_edids():
 
 class Edid:
     _STRUCT_FORMAT = (
-        ">"  # big-endian
+        "<"  # little-endian
         "8s"  # constant header (8 bytes)
         "H"  # manufacturer id (2 bytes)
         "H"  # product id (2 bytes)
@@ -52,12 +52,12 @@ class Edid:
     _TIMINGS = {
         0: (1280, 1024, 75.0),
         1: (1024, 768, 75.0),
-        2: (1024, 768, 72.0),
+        2: (1024, 768, 70.0),
         3: (1024, 768, 60.0),
         4: (1024, 768, 87.0),
         5: (832, 624, 75.0),
         6: (800, 600, 75.0),
-        7: (800, 600, 70.0),
+        7: (800, 600, 72.0),
         8: (800, 600, 60.0),
         9: (800, 600, 56.0),
         10: (640, 480, 75.0),
@@ -136,9 +136,9 @@ class Edid:
 
         self.resolutions = []
         for i in range(16):
-            bit = raw_edid.timings_supported & i
+            bit = raw_edid.timings_supported & (1 << i)
             if bit:
-                self.resolutions.append(self._TIMINGS[16 - i])
+                self.resolutions.append(self._TIMINGS[i])
 
         for i in range(8):
             bytes = raw_edid.timings_edid[2 * i : 2 * i + 2]
