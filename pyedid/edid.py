@@ -1,26 +1,23 @@
-#!/usr/bin/env python3
+"""
+Edid module
+"""
 
 import struct
-import subprocess
 from collections import namedtuple
+from typing import ByteString
 
-import pyedid.pnpid as pnpid
+from pyedid.helpers.registry import Registry
 
-def get_edids():
-    output = subprocess.check_output(["xrandr", "--verbose"])
-    edids = []
-    lines = output.splitlines()
-    for i, line in enumerate(lines):
-        line = line.decode().strip()
-        if line.startswith("EDID:"):
-            selection = lines[i + 1 : i + 9]
-            selection = list(s.decode().strip() for s in selection)
-            selection = "".join(selection)
-            edids.append(bytes.fromhex(selection))
-    return edids
+__all__ = ["Edid"]
 
 
 class Edid:
+    """Edid class
+
+    Raises:
+        `ValueError`: if invalid edid data
+    """
+
     _STRUCT_FORMAT = (
         "<"  # little-endian
         "8s"  # constant header (8 bytes)
@@ -69,66 +66,65 @@ class Edid:
 
     _ASPECT_RATIOS = {
         0b00: (16, 10),
-        0b01: (4, 3),
-        0b10: (5, 4),
-        0b11: (16, 9),
+        0b01: ( 4,  3),
+        0b10: ( 5,  4),
+        0b11: (16,  9),
     }
 
-    _RawEdid = namedtuple(
-        "RawEdid",
-        (
-            "header",
-            "manu_id",
-            "prod_id",
-            "serial_no",
-            "manu_week",
-            "manu_year",
-            "edid_version",
-            "edid_revision",
-            "input_type",
-            "width",
-            "height",
-            "gamma",
-            "features",
-            "color",
-            "timings_supported",
-            "timings_reserved",
-            "timings_edid",
-            "timing_1",
-            "timing_2",
-            "timing_3",
-            "timing_4",
-            "extension",
-            "checksum",
-        ),
-    )
+    _RawEdid = namedtuple("RawEdid",
+                          ("header",
+                           "manu_id",
+                           "prod_id",
+                           "serial_no",
+                           "manu_week",
+                           "manu_year",
+                           "edid_version",
+                           "edid_revision",
+                           "input_type",
+                           "width",
+                           "height",
+                           "gamma",
+                           "features",
+                           "color",
+                           "timings_supported",
+                           "timings_reserved",
+                           "timings_edid",
+                           "timing_1",
+                           "timing_2",
+                           "timing_3",
+                           "timing_4",
+                           "extension",
+                           "checksum")
+                          )
 
-    def __init__(self, bytes=None):
-        if bytes is not None:
-            self._parse_edid(bytes)
+    def __init__(self, edid: ByteString, registry: Registry):
+        self._registry = registry
+        self._parse_edid(edid)
 
-    def _parse_edid(self, bytes):
+    def _parse_edid(self, edid: ByteString):
+        """Convert edid byte string to edid object"""
         if struct.calcsize(self._STRUCT_FORMAT) != 128:
             raise ValueError("Wrong edid size.")
 
-        if sum(map(int, bytes)) % 256 != 0:
+        if sum(map(int, edid)) % 256 != 0:
             raise ValueError("Checksum mismatch.")
 
-        tuple = struct.unpack(self._STRUCT_FORMAT, bytes)
-        raw_edid = self._RawEdid(*tuple)
+        unpacked = struct.unpack(self._STRUCT_FORMAT, edid)
+        raw_edid = self._RawEdid(*unpacked)
 
-        if raw_edid.header != b"\x00\xff\xff\xff\xff\xff\xff\x00":
+        if raw_edid.header != b'\x00\xff\xff\xff\xff\xff\xff\x00':
             raise ValueError("Invalid header.")
 
-        self.raw = bytes
-        self.manufacturer = pnpid.manufacturer_from_raw(raw_edid.manu_id)
+        self.raw = edid
+        self.manufacturer_id = raw_edid.manu_id
+        self.manufacturer = self._registry.get_company_from_raw(raw_edid.manu_id)
         self.product = raw_edid.prod_id
         self.year = raw_edid.manu_year + 1990
-        self.edid_version = "%d.%d" % (raw_edid.edid_version, raw_edid.edid_revision)
+        self.edid_version = "{:d}.{:d}".format(raw_edid.edid_version, raw_edid.edid_revision)
         self.type = "digital" if (raw_edid.input_type & 0xFF) else "analog"
         self.width = float(raw_edid.width)
         self.height = float(raw_edid.height)
-        self.gamma = (raw_edid.gamma + 100) / 100
+        self.gamma = (raw_edid.gamma+100)/100
         self.dpms_standby = bool(raw_edid.features & 0xFF)
         self.dpms_suspend = bool(raw_edid.features & 0x7F)
         self.dpms_activeoff = bool(raw_edid.features & 0x3F)
@@ -140,34 +136,30 @@ class Edid:
                 self.resolutions.append(self._TIMINGS[i])
 
         for i in range(8):
-            bytes = raw_edid.timings_edid[2 * i : 2 * i + 2]
-            if bytes == b"\x01\x01":
+            bytes_data = raw_edid.timings_edid[2*i:2*i+2]
+            if bytes_data == b'\x01\x01':
                 continue
-            byte1, byte2 = bytes
-            x_res = 8 * (int(byte1) + 31)
-            aspect_ratio = self._ASPECT_RATIOS[(byte2 >> 6) & 0b11]
-            y_res = int(x_res * aspect_ratio[1] / aspect_ratio[0])
+            byte1, byte2 = bytes_data
+            x_res = 8*(int(byte1)+31)
+            aspect_ratio = self._ASPECT_RATIOS[(byte2>>6) & 0b11]
+            y_res = int(x_res * aspect_ratio[1]/aspect_ratio[0])
             rate = (int(byte2) & 0b00111111) + 60.0
             self.resolutions.append((x_res, y_res, rate))
 
         self.name = None
         self.serial = None
 
-        for bytes in (
-            raw_edid.timing_1,
-            raw_edid.timing_2,
-            raw_edid.timing_3,
-            raw_edid.timing_4,
-        ):
-            if bytes[0:2] == b"\x00\x00":  # "other" descriptor
-                type = bytes[3]
-                if type in (0xFF, 0xFE, 0xFC):
-                    buffer = bytes[5:]
+        for timing_bytes in (raw_edid.timing_1, raw_edid.timing_2, raw_edid.timing_3, raw_edid.timing_4):
+            # "other" descriptor
+            if timing_bytes[0:2] == b'\x00\x00':
+                timing_type = timing_bytes[3]
+                if timing_type in (0xFF, 0xFE, 0xFC):
+                    buffer = timing_bytes[5:]
                     buffer = buffer.partition(b"\x0a")[0]
                     text = buffer.decode("cp437")
-                    if type == 0xFF:
+                    if timing_type == 0xFF:
                         self.serial = text
-                    elif type == 0xFC:
+                    elif timing_type == 0xFC:
                         self.name = text
 
         if not self.serial:
@@ -179,15 +171,5 @@ class Edid:
         for name in dir(self):
             if not name.startswith("_"):
                 value = getattr(self, name)
-                attributes.append("\t%s=%r" % (name, value))
-        return "%s(\n%s\n)" % (clsname, ", \n".join(attributes))
-
-
-def main():
-    for raw in get_edids():
-        edid = Edid(raw)
-        print(edid)
-
-if __name__ == "__main__":
-    main()
-    
+                attributes.append("\t{}={}".format(name, value))
+        return "{}(\n{}\n)".format(clsname, ", \n".join(attributes))

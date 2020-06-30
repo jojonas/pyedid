@@ -1,38 +1,34 @@
-# Always prefer setuptools over distutils
+"""
+Setup module
+"""
+from os import path
+
 from setuptools import setup, find_packages
-import pathlib
 
-here = pathlib.Path(__file__).parent.resolve()
-
-long_description = (here / 'README.md').read_text(encoding='utf-8')
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
 
 setup(
-    name='pyedid',
-    version='0.1.0',
-    description='Python library to parse extended display identification data (EDID)',
+    name="pyedid",
+    version="0.1",
+    packages=find_packages(),
+    entry_points={"console_scripts": ["pyedid = pyedid.main:main"]},
+    author="Jonas Lieb",
+    author_email="",
+    maintainer="Davydov Denis",
+    maintainer_email="dadmoscow@gmail.com",
+    url="https://github.com/dadmoscow/pyedid",
+    description="This is a python library to parse extended display identification data (EDID)",
     long_description=long_description,
-    long_description_content_type='text/markdown',
-    url='https://github.com/jojonas/pyedid',
-    author='Jonas Lieb',
-    classifiers=[  # Optional
-        'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3 :: Only',
+    long_description_content_type="text/markdown",
+    keywords="edid xrandr display",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3",
+        "Topic :: Software Development :: Libraries",
+        "Topic :: System :: Hardware",
     ],
-    package_dir={'': '.'},
-    packages=find_packages(where='.'),
-    python_requires='>=3.5, <4',
-    package_data={ 
-        'database': ['pyedid/pnp_ids.csv'],
-    },
-    entry_points={
-        'console_scripts': [
-            'pyedid=pyedid.edid:main',
-        ],
-    }
 )
